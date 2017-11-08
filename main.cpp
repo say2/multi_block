@@ -31,17 +31,31 @@ int cmp(uint8_t *a, uint8_t *b);
 
 bool hostcmp(uint8_t *hostname_hash);
 
+bool findhost(char *pay,char *host,int len){
+    int length=(len > 500) ? len : 500;
+    for(int i=0;i<length;i++){
+        if(!memcmp(pay+i,"Host: ",6)){
+            for(int j=0;;j++){
+                if(pay[i+6+j]=='\n')
+                    break;
+                host[j]=pay[i+6+j];
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
               struct nfq_data *nfa, void *data) {
     struct nfqnl_msg_packet_hdr *ph;
     struct pkt_buff *pkt;
     struct libnet_ipv4_hdr *ip_hdr;
-    struct libnet_tcp_hdr *tcp_hdr
+    struct libnet_tcp_hdr *tcp_hdr;
     int id = 0, payload_len, i, tcp_hdr_len;
     uint8_t *payload;
     uint8_t *tcp_payload;
-    char *host, *tmp;
+    char host[100]={0,};, *tmp;
 
     ph = nfq_get_msg_packet_hdr(nfa);
     if (ph) {
@@ -65,9 +79,7 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     tcp_payload = (uint8_t *) (tcp_hdr + tcp_hdr_len);
     for (i = 0; i < METHOD_N; i++) {
         if (tcp_payload && !memcmp(tcp_payload, http_method[i], method_len[i])) {
-            tmp = strstr((char *) tcp_payload, "Host:");
-            tmp = tmp + 6;
-            if (tmp) {
+            if (findhost((char *) tcp_payload, host, (int)sizeof(tcp_payload))) {
                 unsigned char digest[16];
                 char md5Hash[50] = { 0, };
 
